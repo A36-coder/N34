@@ -8,7 +8,7 @@ const PREFIXES = {
 
 // Lien pour télécharger le fichier NEC spécifique au navire
 const LINKS = {
-  NEC_DOWNLOAD: 'https://share.chantiers-atlantique.com/share/proxy/alfresco/slingshot/node/content/workspace/SpacesStore/a07b362b-bbf9-4c2d-8953-043584538638/Extraction_NEC_A36.xlsx?a=true'
+  NEC_DOWNLOAD: 'https://share.chantiers-atlantique.com/share/proxy/alfresco/slingshot/node/content/workspace/SpacesStore/08213d03-1f34-4cb6-b1c8-ac94778059b8/Extraction_NEC_N34.xlsb?a=true'
 };
 
 // Nom du navire
