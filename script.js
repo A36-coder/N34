@@ -1,4 +1,12 @@
-// script.js
+// script.js — version corrigée
+// ------------------------------------------------------------
+//  • Correction principale : dans loadJSON(), toutes les valeurs
+//    sont converties en chaîne via strip() pour éviter l'erreur
+//    « d.includes is not a function ».
+//  • Sécurisation supplémentaire : filtre typeof string dans
+//    showSug() pour ne jamais appeler .includes sur autre chose
+//    qu'une chaîne.
+// ------------------------------------------------------------
 
 // Variables globales
 let jsonData = {};
@@ -8,7 +16,9 @@ let devices = [];
 const COLS = window.COLUMNS;
 const strip = s => String(s || "").replace(new RegExp(`^${window.PREFIXES.APPAREIL_PREFIX}`, 'i'), "").toUpperCase();
 
-// Fonctions pour la page generate.html
+// -----------------------------------------------------------------------------
+//  Fonctions pour la page generate.html
+// -----------------------------------------------------------------------------
 function handleFile(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -70,9 +80,8 @@ function generateJSONFiles(jsonRaw) {
 
   isDataReady = true;
   const downloadAllBtn = document.getElementById("downloadAllBtn");
-  if (downloadAllBtn) {
-    downloadAllBtn.disabled = !isDataReady;
-  }
+  if (downloadAllBtn) downloadAllBtn.disabled = !isDataReady;
+
   showMessage(`✅ ${jsonRaw.length} lignes chargées.`, "success");
 }
 
@@ -114,23 +123,31 @@ function downloadAllAsZip() {
   });
 }
 
-// Fonctions pour la page appareil.html
+// -----------------------------------------------------------------------------
+//  Fonctions pour la page appareil.html
+// -----------------------------------------------------------------------------
 async function loadJSON() {
   const merged = {};
+
   for (const col of COLS) {
     try {
       const res = await fetch(`json/cables_${col}.json`);
       const rows = await res.json();
+
       rows.forEach(r => {
         const id = strip(r.CBL);
         if (!merged[id]) merged[id] = { CBL: id };
-        merged[id][col] = typeof r[col] === "string" ? strip(r[col]) : r[col];
+
+        // 🔧 Conversion systématique en chaîne pour éviter les nombres
+        merged[id][col] = strip(r[col]);
       });
     } catch (e) {
       console.warn("Chargement JSON", col, e);
     }
   }
+
   cables = Object.values(merged);
+
   const set = new Set();
   cables.forEach(c => {
     if (c.APA) set.add(c.APA);
@@ -190,16 +207,13 @@ function showSug() {
   const val = strip(document.getElementById("apInput").value.trim());
   const box = document.getElementById("suggestions");
   box.innerHTML = "";
-  if (!val) {
-    hideSug();
-    return;
-  }
+  if (!val) return hideSug();
 
-  const list = devices.filter(d => d.includes(val)).slice(0, 15);
-  if (!list.length) {
-    hideSug();
-    return;
-  }
+  const list = devices
+    .filter(d => typeof d === "string" && d.includes(val))  // 🔐 garde‑fou typeof
+    .slice(0, 15);
+
+  if (!list.length) return hideSug();
 
   list.forEach(d => {
     const el = document.createElement("div");
@@ -214,7 +228,6 @@ function showSug() {
   });
   box.style.display = "block";
 }
-
 function hideSug() {
   const suggestionsElement = document.getElementById("suggestions");
   if (suggestionsElement) {
