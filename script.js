@@ -1,11 +1,5 @@
-// script.js — version corrigée
-// ------------------------------------------------------------
-//  • Correction principale : dans loadJSON(), toutes les valeurs
-//    sont converties en chaîne via strip() pour éviter l'erreur
-//    « d.includes is not a function ».
-//  • Sécurisation supplémentaire : filtre typeof string dans
-//    showSug() pour ne jamais appeler .includes sur autre chose
-//    qu'une chaîne.
+//Dans ce fichier se trouvent l'ensemble des script utilisés dans appareil/cable/generate/index. html
+//Certaines parties sont inspirés de codes open source ou de code utilisé dans un précedent projet d'optimisation carbone
 // ------------------------------------------------------------
 
 // Variables globales
