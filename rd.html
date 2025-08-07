@@ -3,15 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <title>Recherche & Développement</title>
+
+  <!-- Lib pour lire et générer fichiers Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Bootstrap pour le style -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
   <style>
     #fileInput { max-width: 300px; }
     .appareil-table { margin-bottom: 2rem; }
     #loadingMsg { display: none; font-style: italic; color: #666; }
   </style>
 </head>
+
 <body class="p-4 bg-light">
+  <!-- Barre de navigation -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
     <div class="container-fluid">
       <a class="navbar-brand" href="index.html">📊 Câbles Viewer</a>
@@ -20,62 +27,71 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav">
-          <li class="nav-item"><a class="nav-link active" href="index.html">🏠 Accueil</a></li>
-          <li class="nav-item"><a class="nav-link" href="cable.html">🔍 Rechercher Câble</a></li>
-          <li class="nav-item"><a class="nav-link" href="appareil.html">📡 Rechercher Appareil</a></li>
-          <li class="nav-item"><a class="nav-link" href="generate.html">🛠 Générer JSON</a></li>
-          <li class="nav-item"><a class="nav-link active" href="rd.html">🔎 R&D</a></li>
+          <li class="nav-item"><a class="nav-link active" href="index.html">Accueil</a></li>
+          <li class="nav-item"><a class="nav-link" href="cable.html">Rechercher Câble</a></li>
+          <li class="nav-item"><a class="nav-link" href="appareil.html">Rechercher Appareil</a></li>
+          <li class="nav-item"><a class="nav-link" href="generate.html">Générer JSON</a></li>
+          <li class="nav-item"><a class="nav-link active" href="rd.html">R&D</a></li>
         </ul>
       </div>
     </div>
   </nav>
 
   <div class="container">
-    <h1>🔎 Recherche & Développement</h1>
-    Vous pouvez les séparer par : espace, retour à la ligne, virgule ou point-virgule. Ou encore mieux: copier-coller une colonne excel</p>
+    <h1>Recherche & Développement</h1>
+    <p>Vous pouvez séparer les noms d'appareils par espace, retour à la ligne, virgule ou point-virgule. Ou juste coller une colonne Excel.</p>
 
     <p id="baseIndicator" class="text-muted">Base : inconnue</p>
-    <p id="loadingMsg">⏳ Patientez, chargement du fichier NEC…</p>
+    <p id="loadingMsg">Chargement du fichier NEC…</p>
 
+    <!-- Zone de chargement fichier NEC -->
     <div class="mb-3">
       <label class="form-label">Charger NEC (.xlsb) :</label>
       <input type="file" id="fileInput" accept=".xlsb" class="form-control">
     </div>
 
+    <!-- Zone de saisie appareils -->
     <div class="mb-3">
       <label class="form-label">Appareils :</label>
       <textarea id="appareilsInput" rows="2" class="form-control"></textarea>
     </div>
 
+    <!-- Boutons -->
     <button class="btn btn-primary mb-3" id="btnSearch">Rechercher</button>
     <button class="btn btn-success mb-3 ms-2" id="btnExportAll">Exporter tout</button>
     <button class="btn btn-warning mb-3 ms-2" id="btnExportNonTires">Exporter non tirés</button>
     <button class="btn btn-info mb-3 ms-2" id="btnExportOkAppareils">Exporter appareils OK</button>
 
+    <!-- Résultats affichés ici -->
     <div id="resultsArea"></div>
   </div>
 
+  <!-- Chargement des préfixes/colonnes (config globale) -->
   <script src="config_changement_navire.js"></script>
+
   <script>
+    // Supprime le préfixe d'un appareil et le met en majuscules (standardisation)
     const strip = s => String(s || "").replace(new RegExp(`^${window.PREFIXES.APPAREIL_PREFIX}`, 'i'), "").toUpperCase();
 
-    let cables = [];
-    let globalResults = [];
-    let currentBase = "inconnue";
+    let cables = [];         // Tous les câbles, chargés via JSON ou fichier
+    let globalResults = [];  // Résultats de recherche affichés (pour export)
+    let currentBase = "inconnue"; // Source de données utilisée actuellement
 
-    const COLS = window.COLUMNS;
-    const q = s => document.querySelector(s);
+    const COLS = window.COLUMNS;           // Liste des colonnes utiles
+    const q = s => document.querySelector(s); // Raccourci
     const updateBase = () => q("#baseIndicator").textContent = `Base : ${currentBase}`;
 
+    // Événements au chargement de la page
     window.addEventListener("load", () => {
       q("#fileInput").addEventListener("change", handleXLSB);
       q("#btnSearch").addEventListener("click", searchMulti);
       q("#btnExportAll").addEventListener("click", () => exportExcel(false));
       q("#btnExportNonTires").addEventListener("click", () => exportExcel(true));
       q("#btnExportOkAppareils").addEventListener("click", exportOk);
-      loadDefaultJSON();
+      loadDefaultJSON(); // On charge les JSON si pas de fichier .xlsb
     });
 
+    // Charge les fichiers JSON par colonne (fusionne les données)
     async function loadDefaultJSON() {
       currentBase = "JSON par défaut";
       updateBase();
@@ -97,6 +113,7 @@
       cables = Object.values(merged);
     }
 
+    // Gère le fichier .xlsb sélectionné par l’utilisateur
     function handleXLSB(e) {
       const f = e.target.files[0];
       if (!f) return;
@@ -106,6 +123,7 @@
       fr.readAsArrayBuffer(f);
     }
 
+    // Parse le fichier .xlsb avec SheetJS
     function parseXLSB(buf) {
       try {
         const wb = XLSX.read(buf, { type: "array" });
@@ -129,10 +147,12 @@
       }
     }
 
+    // Sépare les noms d'appareils collés (multi-format)
     function splitInput(txt) {
       return txt.split(/[\s,;]+/).filter(Boolean);
     }
 
+    // Recherche tous les câbles associés aux appareils donnés
     function searchMulti() {
       const appareils = splitInput(q("#appareilsInput").value).map(strip);
       if (!appareils.length) return;
@@ -141,12 +161,19 @@
       globalResults = [];
 
       appareils.forEach(app => {
+        // Cherche les câbles connectés à cet appareil (en APA ou APO)
         let list = cables.filter(c => strip(c.APA) === app || strip(c.APO) === app);
+
+        // Si aucun résultat, on tente avec un préfixe type A36-...
         if (!list.length) {
           const pref = `A36-${app}`.toUpperCase();
           list = cables.filter(c => strip(c.APA) === strip(pref) || strip(c.APO) === strip(pref));
         }
+
+        // Affiche dans la page
         zone.innerHTML += buildTable(app, list);
+
+        // Remplit le tableau de résultats (pour export Excel)
         list.forEach(c => {
           const isAPA = strip(c.APA) === app;
           globalResults.push({
@@ -163,15 +190,42 @@
       });
     }
 
+    // Construit la table HTML pour un appareil
     function buildTable(app, list) {
       if (!list.length) return `<h4>${app}</h4><div class="alert alert-warning">Aucun câble trouvé.</div>`;
       const any = list[0];
       const loc = strip(any.APA) === app ? any.LOCAL_APA : any.LOCAL_APO;
       const lot = strip(any.APA) === app ? any.LOT_MTG_APA : any.LOT_MTG_APO;
-      const rows = list.map(c => `<tr><td>${app}</td><td>${strip(c.CBL)}</td><td>${c.PT_CBL || "-"}</td><td>${c.RESP_TIRAGE || "-"}</td><td>${c.GAM || "-"}</td><td>${c.STT_CBL_BORD || "-"}</td></tr>`).join("");
-      return `<div class="appareil-table"><h4>${app} – ${list.length} câble(s)<br><small class="text-muted">Lot : ${lot || "-"}/ Local : ${loc || "-"}</small></h4><div class="table-responsive"><table class="table table-bordered"><thead class="table-light"><tr><th>Appareil</th><th>Câble</th><th>PT_CBL</th><th>Resp. Tirage</th><th>GAM</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+
+      const rows = list.map(c => `
+        <tr>
+          <td>${app}</td>
+          <td>${strip(c.CBL)}</td>
+          <td>${c.PT_CBL || "-"}</td>
+          <td>${c.RESP_TIRAGE || "-"}</td>
+          <td>${c.GAM || "-"}</td>
+          <td>${c.STT_CBL_BORD || "-"}</td>
+        </tr>
+      `).join("");
+
+      return `
+        <div class="appareil-table">
+          <h4>${app} – ${list.length} câble(s)<br>
+          <small class="text-muted">Lot : ${lot || "-"}/ Local : ${loc || "-"}</small></h4>
+          <div class="table-responsive">
+            <table class="table table-bordered">
+              <thead class="table-light">
+                <tr>
+                  <th>Appareil</th><th>Câble</th><th>PT_CBL</th><th>Resp. Tirage</th><th>GAM</th><th>Statut</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>`;
     }
 
+    // Exporte les résultats en Excel
     function exportExcel(nonTires) {
       let data = nonTires ? globalResults.filter(r => r.Statut.toUpperCase() !== "T") : globalResults;
       if (!data.length) return alert("Aucune donnée !");
@@ -181,6 +235,7 @@
       XLSX.writeFile(wb, nonTires ? "non_tires.xlsx" : "all.xlsx");
     }
 
+    // Exporte les appareils où tous les câbles sont OK (statut = T)
     function exportOk() {
       const map = {};
       globalResults.forEach(r => {
@@ -189,7 +244,16 @@
         if (r.Local) d.loc.add(r.Local);
         if (r.Lot) d.lot.add(r.Lot);
       });
-      const arr = Object.entries(map).filter(([, d]) => d.ok).map(([app, d]) => ({ Appareil: app, Local: [...d.loc].join(", "), Lot: [...d.lot].join(", "), SGDTEL_OK: "OK" }));
+
+      const arr = Object.entries(map)
+        .filter(([, d]) => d.ok)
+        .map(([app, d]) => ({
+          Appareil: app,
+          Local: [...d.loc].join(", "),
+          Lot: [...d.lot].join(", "),
+          SGDTEL_OK: "OK"
+        }));
+
       if (!arr.length) return alert("Aucun appareil avec tous les câbles T.");
       const ws = XLSX.utils.json_to_sheet(arr, { header: ["Appareil", "Local", "Lot", "SGDTEL_OK"] });
       const wb = XLSX.utils.book_new();
@@ -198,6 +262,7 @@
     }
   </script>
 
+  <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
